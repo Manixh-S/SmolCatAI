@@ -27,8 +27,8 @@ const LoginPrompt = ({ clientPrincipal, onClose }: LoginPromptProps) => {
           </button>
         ) : null}
       </div>
-      <a className="login-prompt__button" href="/.auth/login/github">
-        Login to Save
+      <a className="login-prompt__button" href="/.auth/login/google">
+        Login with Google
       </a>
     </div>
   );
