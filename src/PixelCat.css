@@ -1,0 +1,15 @@
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.05);
+  }
+}
+
+.pixel-cat {
+  display: block;
+  animation: breathe 2s ease-in-out infinite;
+  transform-origin: center;
+}

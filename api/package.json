@@ -1,0 +1,19 @@
+{
+  "name": "smolcat-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "func start",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@google/generative-ai": "^0.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

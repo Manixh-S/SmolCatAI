@@ -1,0 +1,61 @@
+.login-prompt {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+}
+
+.login-prompt__message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-prompt__status {
+  margin: 0;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #2a221b;
+}
+
+.login-prompt__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 3px solid #2a221b;
+  background: #fef3c8;
+  color: #2a221b;
+  text-decoration: none;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  box-shadow: 4px 4px 0 #2a221b;
+}
+
+.login-prompt__button:active {
+  transform: translateY(3px);
+  box-shadow: 2px 2px 0 #2a221b;
+}
+
+.login-prompt__close {
+  border: 2px solid #2a221b;
+  background: #fff8d6;
+  color: #2a221b;
+  font-family: inherit;
+  font-size: 0.55rem;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #2a221b;
+}
+
+.login-prompt__close:active {
+  transform: translateY(2px);
+  box-shadow: 1px 1px 0 #2a221b;
+}
