@@ -18,7 +18,7 @@ export const useCatState = () => {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setStats((prev) => ({
-        hunger: clampStat(prev.hunger - 2),
+        hunger: clampStat(prev.hunger + 2),
         happiness: clampStat(prev.happiness - 1),
         energy: clampStat(prev.energy - 1),
       }));
@@ -32,7 +32,7 @@ export const useCatState = () => {
   const feed = useCallback(() => {
     setStats((prev) => ({
       ...prev,
-      hunger: clampStat(prev.hunger + 15),
+      hunger: clampStat(prev.hunger - 15),
     }));
   }, []);
 

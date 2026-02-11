@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@azure/functions": "^4.5.0",
+    "@azure/data-tables": "^13.3.0",
     "@google/generative-ai": "^0.21.0"
   },
   "devDependencies": {

@@ -1,34 +1,49 @@
 .login-prompt {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
   text-align: center;
+}
+
+.login-prompt__panel {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 10px 12px;
+  border: 3px solid #2a221b;
+  background: #fff8d6;
+  box-shadow: 4px 4px 0 #2a221b;
+  min-width: 200px;
 }
 
 .login-prompt__message {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .login-prompt__status {
   margin: 0;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: #2a221b;
+  max-width: 170px;
+  text-align: left;
 }
 
 .login-prompt__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 3px solid #2a221b;
   background: #fef3c8;
   color: #2a221b;
   text-decoration: none;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   box-shadow: 4px 4px 0 #2a221b;
@@ -44,15 +59,20 @@
   background: #fff8d6;
   color: #2a221b;
   font-family: inherit;
-  font-size: 0.55rem;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   cursor: pointer;
   box-shadow: 2px 2px 0 #2a221b;
+}
+
+.login-prompt__close-icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
 }
 
 .login-prompt__close:active {
