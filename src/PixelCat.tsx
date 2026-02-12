@@ -2,15 +2,37 @@ import "./PixelCat.css";
 
 type PixelCatProps = {
   mood: "happy" | "sad" | "sleeping";
+  skin: number;
 };
 
-const PixelCat = ({ mood }: PixelCatProps) => {
+const PixelCat = ({ mood, skin }: PixelCatProps) => {
   const pixel = 4;
-  const catColor = "#8a8a8a";
-  const earColor = "#f2a8b3";
-  const ink = "#1f1f1f";
-  const eyeColor = "#f5f5f5";
-  const blush = "transparent";
+  const palettes = [
+    {
+      catColor: "#8a8a8a",
+      earColor: "#f2a8b3",
+      ink: "#1f1f1f",
+      eyeColor: "#f5f5f5",
+      blush: "transparent",
+    },
+    {
+      catColor: "#d89b6f",
+      earColor: "#f6d4a6",
+      ink: "#3b2718",
+      eyeColor: "#fff1dc",
+      blush: "#e07b8c",
+    },
+    {
+      catColor: "#5a6c8e",
+      earColor: "#cdd6f6",
+      ink: "#1b2233",
+      eyeColor: "#e4ebff",
+      blush: "#7a8fba",
+    },
+  ];
+
+  const palette = palettes[Math.abs(skin) % palettes.length];
+  const { catColor, earColor, ink, eyeColor, blush } = palette;
 
   const eyeY = 16;
 

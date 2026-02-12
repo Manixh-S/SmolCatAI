@@ -269,6 +269,45 @@
   z-index: 1;
 }
 
+.tama-skin-wrap {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.tama-skin {
+  position: absolute;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 3px solid #2f261f;
+  background: linear-gradient(180deg, #fff7d6, var(--button));
+  color: #2a221b;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow: 0 5px 0 var(--button-shadow);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.tama-skin--prev {
+  left: 10px;
+}
+
+.tama-skin--next {
+  right: 10px;
+}
+
+.tama-skin:active {
+  transform: translateY(calc(-50% + 4px));
+  box-shadow: 0 2px 0 var(--button-shadow);
+}
+
 .tama-bubble {
   position: absolute;
   top: 16px;
@@ -365,6 +404,12 @@
 
   .tama-chat {
     grid-template-columns: 1fr;
+  }
+
+  .tama-skin {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
   }
 
   .tama-topbar {

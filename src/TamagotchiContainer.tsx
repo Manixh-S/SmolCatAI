@@ -25,6 +25,15 @@ const TamagotchiContainer = () => {
   });
   const [nameDraft, setNameDraft] = useState(catName);
   const [nameEditing, setNameEditing] = useState(false);
+  const [skinIndex, setSkinIndex] = useState(() => {
+    if (typeof window === "undefined") {
+      return 0;
+    }
+
+    const storedSkin = window.localStorage.getItem("smolcat-skin");
+    const parsed = storedSkin ? Number.parseInt(storedSkin, 10) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  });
   const [message, setMessage] = useState("Ready to play");
   const [chatInput, setChatInput] = useState("");
   const [chatPending, setChatPending] = useState(false);
@@ -76,6 +85,12 @@ const TamagotchiContainer = () => {
   }, [catName]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("smolcat-skin", String(skinIndex));
+    }
+  }, [skinIndex]);
+
+  useEffect(() => {
     if (!nameEditing) {
       setNameDraft(catName);
     }
@@ -109,6 +124,16 @@ const TamagotchiContainer = () => {
     sleep();
     setChatError(null);
     setMessage(getCatResponse("sleep", stats));
+  };
+
+  const skinCount = 3;
+
+  const handlePrevSkin = () => {
+    setSkinIndex((prev) => (prev + skinCount - 1) % skinCount);
+  };
+
+  const handleNextSkin = () => {
+    setSkinIndex((prev) => (prev + 1) % skinCount);
   };
 
   const hungerFill = Math.max(0, 100 - stats.hunger);
@@ -293,7 +318,25 @@ const TamagotchiContainer = () => {
                     />
                   ) : null}
                 </div>
-                <PixelCat mood={mood} />
+                <div className="tama-skin-wrap">
+                  <button
+                    className="tama-skin tama-skin--prev"
+                    type="button"
+                    onClick={handlePrevSkin}
+                    aria-label="Previous cat skin"
+                  >
+                    <span aria-hidden="true">&lt;</span>
+                  </button>
+                  <PixelCat mood={mood} skin={skinIndex} />
+                  <button
+                    className="tama-skin tama-skin--next"
+                    type="button"
+                    onClick={handleNextSkin}
+                    aria-label="Next cat skin"
+                  >
+                    <span aria-hidden="true">&gt;</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
