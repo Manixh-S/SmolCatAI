@@ -266,7 +266,7 @@
   display: grid;
   place-items: center;
   min-height: 220px;
-  z-index: 1;
+  z-index: 3;
 }
 
 .tama-skin-wrap {
@@ -313,6 +313,7 @@
   top: 16px;
   left: 50%;
   transform: translate(-50%, -90%);
+  z-index: 4;
 }
 
 .tama-controls {
