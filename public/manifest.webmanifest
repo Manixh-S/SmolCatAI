@@ -1,0 +1,16 @@
+{
+  "name": "SmolCat",
+  "short_name": "SmolCat",
+  "description": "Chat, play, and care for SmolCat — an AI cat chatbot with a playful personality.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6ecd4",
+  "theme_color": "#f08a4b",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
