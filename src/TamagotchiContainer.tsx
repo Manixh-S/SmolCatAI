@@ -9,6 +9,11 @@ import { sessionId } from "./SessionManager";
 import { useCatState } from "./useCatState";
 
 const TamagotchiContainer = () => {
+  const normalizeCatName = (value: string) => {
+    const trimmed = value.trim().slice(0, 15);
+    return trimmed.length > 0 ? trimmed : "SmolCat";
+  };
+
   const { stats, feed, pet, sleep } = useCatState();
   const [catName, setCatName] = useState(() => {
     if (typeof window === "undefined") {
@@ -16,7 +21,7 @@ const TamagotchiContainer = () => {
     }
 
     const storedName = window.localStorage.getItem("smolcat-name");
-    return storedName?.trim() ? storedName : "SmolCat";
+    return storedName ? normalizeCatName(storedName) : "SmolCat";
   });
   const [nameDraft, setNameDraft] = useState(catName);
   const [nameEditing, setNameEditing] = useState(false);
@@ -70,6 +75,12 @@ const TamagotchiContainer = () => {
     }
   }, [catName]);
 
+  useEffect(() => {
+    if (!nameEditing) {
+      setNameDraft(catName);
+    }
+  }, [catName, nameEditing]);
+
   const mood = useMemo(() => {
     if (stats.energy <= 20) {
       return "sleeping" as const;
@@ -113,6 +124,7 @@ const TamagotchiContainer = () => {
     setChatError(null);
 
     try {
+      const outgoingName = normalizeCatName(nameEditing ? nameDraft : catName);
       const response = await fetch("/api/chatWithCat", {
         method: "POST",
         headers: {
@@ -120,7 +132,7 @@ const TamagotchiContainer = () => {
         },
         body: JSON.stringify({
           sessionId,
-          catName,
+          catName: outgoingName,
           stats,
           userMessage: trimmedMessage,
         }),
@@ -146,9 +158,9 @@ const TamagotchiContainer = () => {
   };
 
   const saveName = () => {
-    const trimmed = nameDraft.trim().slice(0, 15);
-    const nextName = trimmed.length > 0 ? trimmed : "SmolCat";
+    const nextName = normalizeCatName(nameDraft);
     setCatName(nextName);
+    setNameDraft(nextName);
     setNameEditing(false);
   };
 
