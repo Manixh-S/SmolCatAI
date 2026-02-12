@@ -10,6 +10,7 @@ type BackgroundMusicProps = {
 function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const [isPlaying, setIsPlaying] = useState(true);
+	const userMutedRef = useRef(false);
 
 	useEffect(() => {
 		const audio = audioRef.current;
@@ -45,6 +46,10 @@ function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 		};
 
 		const handleUserGesture = () => {
+			if (userMutedRef.current) {
+				return;
+			}
+
 			if (audio.paused) {
 				void tryResume();
 			}
@@ -68,10 +73,12 @@ function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 		if (isPlaying) {
 			audio.pause();
 			setIsPlaying(false);
+			userMutedRef.current = true;
 			return;
 		}
 
 		try {
+			userMutedRef.current = false;
 			await audio.play();
 			setIsPlaying(true);
 		} catch (error) {
