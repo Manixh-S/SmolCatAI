@@ -29,6 +29,36 @@ function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 		tryAutoplay();
 	}, [src]);
 
+	useEffect(() => {
+		const audio = audioRef.current;
+		if (!audio) {
+			return;
+		}
+
+		const tryResume = async () => {
+			try {
+				await audio.play();
+				setIsPlaying(true);
+			} catch {
+				setIsPlaying(false);
+			}
+		};
+
+		const handleUserGesture = () => {
+			if (audio.paused) {
+				void tryResume();
+			}
+		};
+
+		document.addEventListener("pointerdown", handleUserGesture);
+		document.addEventListener("keydown", handleUserGesture);
+
+		return () => {
+			document.removeEventListener("pointerdown", handleUserGesture);
+			document.removeEventListener("keydown", handleUserGesture);
+		};
+	}, []);
+
 	const handleToggle = async () => {
 		const audio = audioRef.current;
 		if (!audio) {

@@ -157,6 +157,15 @@ const TamagotchiContainer = () => {
     setNameEditing(true);
   };
 
+  const handleEditClick = () => {
+    if (nameEditing) {
+      saveName();
+      return;
+    }
+
+    startEditingName();
+  };
+
   const saveName = () => {
     const nextName = normalizeCatName(nameDraft);
     setCatName(nextName);
@@ -245,7 +254,7 @@ const TamagotchiContainer = () => {
                   <button
                     className="tama-title__edit"
                     type="button"
-                    onClick={startEditingName}
+                    onClick={handleEditClick}
                     aria-label="Edit cat name"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">

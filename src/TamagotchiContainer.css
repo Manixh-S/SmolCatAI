@@ -228,6 +228,8 @@
   display: grid;
   gap: 10px;
   align-content: start;
+  position: relative;
+  z-index: 2;
 }
 
 .tama-stats {
@@ -264,6 +266,7 @@
   display: grid;
   place-items: center;
   min-height: 220px;
+  z-index: 1;
 }
 
 .tama-bubble {
