@@ -229,7 +229,7 @@
   gap: 10px;
   align-content: start;
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 
 .tama-stats {
@@ -313,7 +313,7 @@
   top: 16px;
   left: 50%;
   transform: translate(-50%, -90%);
-  z-index: 4;
+  z-index: 6;
 }
 
 .tama-controls {
