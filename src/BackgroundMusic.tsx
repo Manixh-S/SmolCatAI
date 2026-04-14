@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import "./BackgroundMusic.css";
 
 type BackgroundMusicProps = {
@@ -9,60 +9,7 @@ type BackgroundMusicProps = {
 
 function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 	const audioRef = useRef<HTMLAudioElement | null>(null);
-	const [isPlaying, setIsPlaying] = useState(true);
-	const userMutedRef = useRef(false);
-
-	useEffect(() => {
-		const audio = audioRef.current;
-		if (!audio) {
-			return;
-		}
-
-		const tryAutoplay = async () => {
-			try {
-				await audio.play();
-				setIsPlaying(true);
-			} catch (error) {
-				setIsPlaying(false);
-			}
-		};
-
-		tryAutoplay();
-	}, [src]);
-
-	useEffect(() => {
-		const audio = audioRef.current;
-		if (!audio) {
-			return;
-		}
-
-		const tryResume = async () => {
-			try {
-				await audio.play();
-				setIsPlaying(true);
-			} catch {
-				setIsPlaying(false);
-			}
-		};
-
-		const handleUserGesture = () => {
-			if (userMutedRef.current) {
-				return;
-			}
-
-			if (audio.paused) {
-				void tryResume();
-			}
-		};
-
-		document.addEventListener("pointerdown", handleUserGesture);
-		document.addEventListener("keydown", handleUserGesture);
-
-		return () => {
-			document.removeEventListener("pointerdown", handleUserGesture);
-			document.removeEventListener("keydown", handleUserGesture);
-		};
-	}, []);
+	const [isPlaying, setIsPlaying] = useState(false);
 
 	const handleToggle = async () => {
 		const audio = audioRef.current;
@@ -73,15 +20,13 @@ function BackgroundMusic({ src, title, creator }: BackgroundMusicProps) {
 		if (isPlaying) {
 			audio.pause();
 			setIsPlaying(false);
-			userMutedRef.current = true;
 			return;
 		}
 
 		try {
-			userMutedRef.current = false;
 			await audio.play();
 			setIsPlaying(true);
-		} catch (error) {
+		} catch {
 			setIsPlaying(false);
 		}
 	};
