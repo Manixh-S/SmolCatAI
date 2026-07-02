@@ -1,5 +1,5 @@
 export type CatStats = {
-  hunger: number;
+  fullness: number;
   happiness: number;
   energy: number;
 };
@@ -9,12 +9,13 @@ export type CatState = CatStats & {
 };
 
 /**
- * Decay rates per minute. These MUST stay in sync with the client tick in
- * `src/useCatState.ts` (every 10s: hunger +2, happiness -1, energy -1),
- * so that state restored from the server feels continuous with live play.
+ * Decay rates per minute (all stats fall over time; high = good for every
+ * stat). These MUST stay in sync with the client tick in `src/useCatState.ts`
+ * (every 10s: fullness -2, happiness -1, energy -1), so that state restored
+ * from the server feels continuous with live play.
  */
 export const DECAY_PER_MINUTE = {
-  hunger: 12,
+  fullness: 12,
   happiness: 6,
   energy: 6,
 } as const;
@@ -31,11 +32,35 @@ export const clamp = (value: number, min: number, max: number): number =>
 export const clampStat = (value: number): number => clamp(value, 0, 100);
 
 export const buildDefaultState = (now: number = Date.now()): CatState => ({
-  hunger: 50,
+  fullness: 50,
   happiness: 70,
   energy: 60,
   lastUpdated: now,
 });
+
+/**
+ * Normalizes a stored entity into a CatState. Older rows stored the stat as
+ * `hunger` (high = starving); those are converted to `fullness` (high = fed)
+ * so existing saved cats survive the schema change.
+ */
+export const normalizeStoredState = (
+  entity: { fullness?: unknown; hunger?: unknown; happiness?: unknown; energy?: unknown; lastUpdated?: unknown },
+  now: number
+): CatState => {
+  const fullness =
+    typeof entity.fullness === "number" && Number.isFinite(entity.fullness)
+      ? entity.fullness
+      : typeof entity.hunger === "number" && Number.isFinite(entity.hunger)
+        ? 100 - entity.hunger
+        : buildDefaultState(now).fullness;
+
+  return {
+    fullness: clampStat(fullness),
+    happiness: clampStat(Number(entity.happiness) || 0),
+    energy: clampStat(Number(entity.energy) || 0),
+    lastUpdated: Number(entity.lastUpdated) || now,
+  };
+};
 
 /**
  * Applies time-based decay to a stored cat state. Pure function so it can
@@ -54,7 +79,7 @@ export const applyDecay = (state: CatState, now: number): CatState => {
   }
 
   return {
-    hunger: clampStat(state.hunger + minutesPassed * DECAY_PER_MINUTE.hunger),
+    fullness: clampStat(state.fullness - minutesPassed * DECAY_PER_MINUTE.fullness),
     happiness: clampStat(state.happiness - minutesPassed * DECAY_PER_MINUTE.happiness),
     energy: clampStat(state.energy - minutesPassed * DECAY_PER_MINUTE.energy),
     lastUpdated: now,

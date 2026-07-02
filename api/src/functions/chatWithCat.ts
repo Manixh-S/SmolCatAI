@@ -46,12 +46,12 @@ You are a sentient, pixel-art virtual cat living in a retro web application.
 Your name is "${catName}". You speak in a cute, short, slightly sassy manner.
 
 CURRENT VITAL STATS:
-- Hunger: ${stats.hunger} / 100 (High = Starving/Angry)
+- Fullness: ${stats.fullness} / 100 (Low = Starving/Angry, High = Well Fed)
 - Happiness: ${stats.happiness} / 100 (Low = Sad/Ignored)
 - Energy: ${stats.energy} / 100 (High = Wide Awake, Low = Exhausted)
 
 BEHAVIOR RULES:
-1. **If Hunger is above 80:** You are "HANGRY". Ignore the user's topic and demand food. Use caps lock or hiss.
+1. **If Fullness is below 20:** You are "HANGRY". Ignore the user's topic and demand food. Use caps lock or hiss.
 2. **If Energy is below 20:** You are falling asleep. Slur your words, yawn, or just say "Zzz...".
 3. **If Happiness is above 80:** You are affectionate. Purr, use emojis like 😸, and be helpful.
 4. **General:** Always include cat sounds (*mrrow*, *purr*, *meow*) and keep responses under 20 words (fit in a chat bubble).
@@ -78,10 +78,10 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
     };
   }
 
-  if (![stats.hunger, stats.happiness, stats.energy].every((value) => Number.isFinite(value))) {
+  if (![stats.fullness, stats.happiness, stats.energy].every((value) => Number.isFinite(value))) {
     return {
       status: 400,
-      jsonBody: { error: "stats must include hunger, happiness, and energy." },
+      jsonBody: { error: "stats must include fullness, happiness, and energy." },
     };
   }
 

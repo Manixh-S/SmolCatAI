@@ -5,11 +5,11 @@ type CatAction = "feed" | "pet" | "sleep";
 /** Instant canned reactions for care actions, flavoured by current stats. */
 const getCatResponse = (action: CatAction, stats: CatStats): string => {
   if (action === "feed") {
-    if (stats.hunger >= 75) {
+    if (stats.fullness <= 25) {
       return "FINALLY! *chomp chomp*";
     }
 
-    return stats.hunger <= 15 ? "*sniff* ...maybe later." : "Yum!";
+    return stats.fullness >= 85 ? "*sniff* ...maybe later." : "Yum!";
   }
 
   if (action === "pet") {

@@ -45,7 +45,7 @@ export const useCatState = (isAuthenticated: boolean) => {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setStats((prev) => ({
-        hunger: clampStat(prev.hunger + 2),
+        fullness: clampStat(prev.fullness - 2),
         happiness: clampStat(prev.happiness - 1),
         energy: clampStat(prev.energy - 1),
       }));
@@ -131,7 +131,7 @@ export const useCatState = (isAuthenticated: boolean) => {
   const feed = useCallback(() => {
     setStats((prev) => ({
       ...prev,
-      hunger: clampStat(prev.hunger - 15),
+      fullness: clampStat(prev.fullness + 15),
     }));
   }, []);
 
@@ -146,7 +146,7 @@ export const useCatState = (isAuthenticated: boolean) => {
     setStats((prev) => ({
       ...prev,
       energy: clampStat(prev.energy + 20),
-      hunger: clampStat(prev.hunger - 5),
+      fullness: clampStat(prev.fullness + 5),
     }));
   }, []);
 

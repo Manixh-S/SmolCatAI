@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getUserIdFromHeader } from "../shared/auth";
-import { applyDecay, buildDefaultState } from "../shared/catState";
+import { applyDecay, buildDefaultState, normalizeStoredState } from "../shared/catState";
 import { getTableClient, STATE_TABLE } from "../shared/tables";
 
 const PARTITION_KEY = "cat";
@@ -8,7 +8,9 @@ const PARTITION_KEY = "cat";
 type CatStateEntity = {
   partitionKey: string;
   rowKey: string;
-  hunger: number;
+  fullness?: number;
+  /** Legacy field from the old schema (high = starving); converted on read. */
+  hunger?: number;
   happiness: number;
   energy: number;
   lastUpdated: number;
@@ -38,15 +40,7 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
 
   try {
     const entity = await tableClient.getEntity<CatStateEntity>(PARTITION_KEY, userId);
-    const updatedState = applyDecay(
-      {
-        hunger: Number(entity.hunger) || 0,
-        happiness: Number(entity.happiness) || 0,
-        energy: Number(entity.energy) || 0,
-        lastUpdated: Number(entity.lastUpdated) || now,
-      },
-      now
-    );
+    const updatedState = applyDecay(normalizeStoredState(entity, now), now);
 
     return {
       status: 200,

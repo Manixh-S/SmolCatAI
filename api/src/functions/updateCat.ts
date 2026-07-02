@@ -7,7 +7,7 @@ import { TableServiceClient } from "@azure/data-tables";
 const PARTITION_KEY = "cat";
 
 type CatStateUpdate = {
-  hunger: number;
+  fullness: number;
   happiness: number;
   energy: number;
 };
@@ -42,13 +42,13 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
   }
 
   if (
-    typeof payload.hunger !== "number" ||
+    typeof payload.fullness !== "number" ||
     typeof payload.happiness !== "number" ||
     typeof payload.energy !== "number"
   ) {
     return {
       status: 400,
-      jsonBody: { error: "hunger, happiness, and energy are required." },
+      jsonBody: { error: "fullness, happiness, and energy are required." },
     };
   }
 
@@ -57,7 +57,7 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
   const entity = {
     partitionKey: PARTITION_KEY,
     rowKey: userId,
-    hunger: clampStat(payload.hunger),
+    fullness: clampStat(payload.fullness),
     happiness: clampStat(payload.happiness),
     energy: clampStat(payload.energy),
     lastUpdated: now,
@@ -72,7 +72,7 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
     return {
       status: 200,
       jsonBody: {
-        hunger: entity.hunger,
+        fullness: entity.fullness,
         happiness: entity.happiness,
         energy: entity.energy,
         lastUpdated: entity.lastUpdated,

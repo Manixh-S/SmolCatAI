@@ -7,7 +7,7 @@ The project is set up for deployment on Azure Static Web Apps with Google authen
 ## Features
 
 - Retro tamagotchi-style UI with animated pixel cat skins
-- Cat care loop with hunger, happiness, and energy stats
+- Cat care loop with fullness, happiness, and energy stats (all "high = good"; feeding fills the Food bar)
 - AI chat powered by Gemini with mood-aware responses
 - Stats persist in `localStorage` for everyone and sync to the server for signed-in users
 - Time-based decay applied on the server (and locally) when you return
@@ -197,7 +197,7 @@ Example request body:
   "sessionId": "a-session-id",
   "catName": "SmolCat",
   "stats": {
-    "hunger": 42,
+    "fullness": 42,
     "happiness": 81,
     "energy": 63
   },
@@ -222,6 +222,7 @@ Behavior:
 - Requires authenticated identity from Static Web Apps headers
 - Requires `AzureWebJobsStorage`
 - Reads from the `CatStates` table; returns default stats if none saved yet
+- Legacy rows saved with the old `hunger` field (high = starving) are converted to `fullness` (high = fed) on read
 
 ### `POST /api/updateCat`
 
@@ -231,7 +232,7 @@ Example request body:
 
 ```json
 {
-  "hunger": 25,
+  "fullness": 25,
   "happiness": 90,
   "energy": 60
 }

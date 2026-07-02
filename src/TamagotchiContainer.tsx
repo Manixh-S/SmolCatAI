@@ -76,12 +76,12 @@ const TamagotchiContainer = () => {
       return "sleeping" as const;
     }
 
-    if (stats.happiness <= 30 || stats.hunger >= 75) {
+    if (stats.happiness <= 30 || stats.fullness <= 25) {
       return "sad" as const;
     }
 
     return "happy" as const;
-  }, [stats.energy, stats.happiness, stats.hunger]);
+  }, [stats.energy, stats.happiness, stats.fullness]);
 
   const handleFeed = () => {
     feed();
@@ -110,8 +110,6 @@ const TamagotchiContainer = () => {
   const handleNextSkin = () => {
     setSkinIndex((prev) => (prev + 1) % skinCount);
   };
-
-  const hungerFill = Math.max(0, 100 - stats.hunger);
 
   const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -274,9 +272,9 @@ const TamagotchiContainer = () => {
                 </div>
                 <div className="tama-stats">
                   <div className="tama-stat">
-                    <span className="tama-stat__label">Hunger</span>
+                    <span className="tama-stat__label">Food</span>
                     <div className="tama-stat__bar">
-                      <span className="tama-stat__fill" style={{ width: `${hungerFill}%` }} />
+                      <span className="tama-stat__fill" style={{ width: `${stats.fullness}%` }} />
                     </div>
                   </div>
                   <div className="tama-stat">
