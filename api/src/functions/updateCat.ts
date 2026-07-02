@@ -1,39 +1,16 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { TableClient } from "@azure/data-tables";
+import { getUserIdFromHeader } from "../shared/auth";
+import { clampStat } from "../shared/catState";
+import { ensureTable, getTableClient, STATE_TABLE } from "../shared/tables";
+import { TableServiceClient } from "@azure/data-tables";
 
-type CatStateEntity = {
-  partitionKey: string;
-  rowKey: string;
-  hunger: number;
-  happiness: number;
-  lastUpdated: number;
-};
+const PARTITION_KEY = "cat";
 
 type CatStateUpdate = {
   hunger: number;
   happiness: number;
-  lastUpdated?: number;
+  energy: number;
 };
-
-const TABLE_NAME = "CatStates";
-const PARTITION_KEY = "cat";
-
-const getUserIdFromHeader = (request: HttpRequest): string | null => {
-  const headerValue = request.headers.get("x-ms-client-principal");
-  if (!headerValue) {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(headerValue, "base64").toString("utf8");
-    const parsed = JSON.parse(decoded) as { userId?: string };
-    return parsed.userId ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
 const handler = async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
   const connectionString = process.env.AzureWebJobsStorage;
@@ -64,31 +41,40 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
     };
   }
 
-  if (typeof payload.hunger !== "number" || typeof payload.happiness !== "number") {
+  if (
+    typeof payload.hunger !== "number" ||
+    typeof payload.happiness !== "number" ||
+    typeof payload.energy !== "number"
+  ) {
     return {
       status: 400,
-      jsonBody: { error: "hunger and happiness are required." },
+      jsonBody: { error: "hunger, happiness, and energy are required." },
     };
   }
 
+  // The server owns lastUpdated so clients cannot rewind the decay clock.
   const now = Date.now();
-  const entity: CatStateEntity = {
+  const entity = {
     partitionKey: PARTITION_KEY,
     rowKey: userId,
-    hunger: clamp(payload.hunger, 0, 100),
-    happiness: clamp(payload.happiness, 0, 100),
-    lastUpdated: Number.isFinite(payload.lastUpdated) ? Number(payload.lastUpdated) : now,
+    hunger: clampStat(payload.hunger),
+    happiness: clampStat(payload.happiness),
+    energy: clampStat(payload.energy),
+    lastUpdated: now,
   };
 
-  const tableClient = TableClient.fromConnectionString(connectionString, TABLE_NAME);
-
   try {
+    const serviceClient = TableServiceClient.fromConnectionString(connectionString);
+    await ensureTable(serviceClient, STATE_TABLE);
+
+    const tableClient = getTableClient(connectionString, STATE_TABLE);
     await tableClient.upsertEntity(entity, "Merge");
     return {
       status: 200,
       jsonBody: {
         hunger: entity.hunger,
         happiness: entity.happiness,
+        energy: entity.energy,
         lastUpdated: entity.lastUpdated,
       },
     };

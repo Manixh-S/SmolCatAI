@@ -1,13 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient, TableServiceClient } from "@azure/data-tables";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { randomUUID } from "crypto";
-
-type CatStats = {
-  hunger: number;
-  happiness: number;
-  energy: number;
-};
+import { getUserIdFromHeader } from "../shared/auth";
+import { CatStats } from "../shared/catState";
+import { checkRateLimit } from "../shared/rateLimit";
+import { CHAT_TABLE, ensureTable, getTableClient, RATE_LIMIT_TABLE, SESSION_TABLE } from "../shared/tables";
 
 type ChatWithCatRequest = {
   sessionId?: string;
@@ -24,62 +22,40 @@ type ChatMessageEntity = {
   createdAt: number;
 };
 
-type SessionEntity = {
-  partitionKey: string;
-  rowKey: string;
-  userId?: string;
-  catName?: string;
-  hunger?: number;
-  happiness?: number;
-  energy?: number;
-  lastUpdated: number;
-};
-
-type ClientPrincipal = {
-  userId?: string;
-};
-
-const CHAT_TABLE = "CatChatHistory";
-const SESSION_TABLE = "CatSessions";
 const SESSION_PARTITION = "session";
 const MAX_HISTORY = 8;
-
-const getUserIdFromHeader = (request: HttpRequest): string | null => {
-  const headerValue = request.headers.get("x-ms-client-principal");
-  if (!headerValue) {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(headerValue, "base64").toString("utf8");
-    const parsed = JSON.parse(decoded) as ClientPrincipal;
-    return parsed.userId ?? null;
-  } catch {
-    return null;
-  }
-};
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 const normalizeSessionId = (sessionId?: string): string => {
   const trimmed = sessionId?.trim();
   return trimmed ? trimmed : randomUUID();
 };
 
+/**
+ * Row keys use an inverted timestamp so Table Storage's natural ascending
+ * order returns the newest messages first, letting us stop after MAX_HISTORY.
+ */
 const buildChatRowKey = (timestamp: number): string => {
   const inverted = 9_999_999_999_999 - timestamp;
   const suffix = Math.random().toString(36).slice(2, 8);
   return `${inverted.toString().padStart(13, "0")}-${suffix}`;
 };
 
-const ensureTable = async (serviceClient: TableServiceClient, tableName: string) => {
-  try {
-    await serviceClient.createTable(tableName);
-  } catch (error) {
-    const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode !== 409) {
-      throw error;
-    }
-  }
-};
+const buildSystemPrompt = (catName: string, stats: CatStats): string => `
+You are a sentient, pixel-art virtual cat living in a retro web application.
+Your name is "${catName}". You speak in a cute, short, slightly sassy manner.
+
+CURRENT VITAL STATS:
+- Hunger: ${stats.hunger} / 100 (High = Starving/Angry)
+- Happiness: ${stats.happiness} / 100 (Low = Sad/Ignored)
+- Energy: ${stats.energy} / 100 (High = Wide Awake, Low = Exhausted)
+
+BEHAVIOR RULES:
+1. **If Hunger is above 80:** You are "HANGRY". Ignore the user's topic and demand food. Use caps lock or hiss.
+2. **If Energy is below 20:** You are falling asleep. Slur your words, yawn, or just say "Zzz...".
+3. **If Happiness is above 80:** You are affectionate. Purr, use emojis like 😸, and be helpful.
+4. **General:** Always include cat sounds (*mrrow*, *purr*, *meow*) and keep responses under 20 words (fit in a chat bubble).
+`;
 
 const handler = async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
   let payload: ChatWithCatRequest;
@@ -122,30 +98,7 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
     };
   }
 
-  const resolvedCatName = catName?.trim() || "Pixel";
-
-  const systemPrompt = `
-You are a sentient, pixel-art virtual cat living in a retro web application.
-Your name is "${resolvedCatName}". You speak in a cute, short, slightly sassy manner.
-
-CURRENT VITAL STATS:
-- Hunger: ${stats.hunger} / 100 (High = Starving/Angry)
-- Happiness: ${stats.happiness} / 100 (Low = Sad/Ignored)
-- Energy: ${stats.energy} / 100 (High = Wide Awake, Low = Exhausted)
-
-BEHAVIOR RULES:
-1. **If Hunger is above 80:** You are "HANGRY". Ignore the user's topic and demand food. Use caps lock or hiss.
-2. **If Energy is below 20:** You are falling asleep. Slur your words, yawn, or just say "Zzz...".
-3. **If Happiness is above 80:** You are affectionate. Purr, use emojis like 😸, and be helpful.
-4. **General:** Always include cat sounds (*mrrow*, *purr*, *meow*) and keep responses under 20 words (fit in a chat bubble).
-`;
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
-    systemInstruction: systemPrompt,
-  });
-
+  const userId = getUserIdFromHeader(request);
   const trimmedMessage = userMessage.trim();
   const chatHistory: ChatMessageEntity[] = [];
 
@@ -155,16 +108,32 @@ BEHAVIOR RULES:
   if (connectionString) {
     try {
       const serviceClient = TableServiceClient.fromConnectionString(connectionString);
-      await Promise.all([ensureTable(serviceClient, CHAT_TABLE), ensureTable(serviceClient, SESSION_TABLE)]);
+      await Promise.all([
+        ensureTable(serviceClient, CHAT_TABLE),
+        ensureTable(serviceClient, SESSION_TABLE),
+        ensureTable(serviceClient, RATE_LIMIT_TABLE),
+      ]);
 
-      chatClient = TableClient.fromConnectionString(connectionString, CHAT_TABLE);
-      sessionClient = TableClient.fromConnectionString(connectionString, SESSION_TABLE);
+      // Signed-in users are trusted; anonymous sessions get a fixed-window
+      // limit so a stray script can't burn the Gemini quota.
+      if (!userId) {
+        const rateLimitClient = getTableClient(connectionString, RATE_LIMIT_TABLE);
+        const allowed = await checkRateLimit(rateLimitClient, sessionId);
+        if (!allowed) {
+          return {
+            status: 429,
+            jsonBody: { error: "The cat needs a break. Try again in a minute, or sign in." },
+          };
+        }
+      }
+
+      chatClient = getTableClient(connectionString, CHAT_TABLE);
+      sessionClient = getTableClient(connectionString, SESSION_TABLE);
 
       const safeSessionId = sessionId.replace(/'/g, "''");
       const query = chatClient.listEntities<ChatMessageEntity>({
         queryOptions: {
           filter: `PartitionKey eq '${safeSessionId}'`,
-          select: ["rowKey", "role", "text", "createdAt"],
         },
       });
 
@@ -195,8 +164,17 @@ BEHAVIOR RULES:
 
     contents.push({ role: "user", parts: [{ text: trimmedMessage }] });
 
-    const result = await model.generateContent({ contents });
-    const responseText = result.response.text();
+    const resolvedCatName = catName?.trim() || "Pixel";
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents,
+      config: {
+        systemInstruction: buildSystemPrompt(resolvedCatName, stats),
+      },
+    });
+
+    const responseText = result.text ?? "...mrow?";
 
     if (chatClient) {
       const now = Date.now();
@@ -223,26 +201,23 @@ BEHAVIOR RULES:
       }
     }
 
-    if (sessionClient) {
-      const userId = getUserIdFromHeader(request);
-      if (userId) {
-        const now = Date.now();
-        const sessionEntity: SessionEntity = {
-          partitionKey: SESSION_PARTITION,
-          rowKey: sessionId,
-          userId,
-          catName: catName?.trim() || undefined,
-          hunger: stats.hunger,
-          happiness: stats.happiness,
-          energy: stats.energy,
-          lastUpdated: now,
-        };
-
-        try {
-          await sessionClient.upsertEntity(sessionEntity, "Merge");
-        } catch (error) {
-          context.warn("Failed to save session metadata", error);
-        }
+    // Session metadata links browser sessions to signed-in users. Stats are
+    // intentionally NOT duplicated here; CatStates is the single source of
+    // truth for persisted cat state.
+    if (sessionClient && userId) {
+      try {
+        await sessionClient.upsertEntity(
+          {
+            partitionKey: SESSION_PARTITION,
+            rowKey: sessionId,
+            userId,
+            catName: catName?.trim() || undefined,
+            lastUpdated: Date.now(),
+          },
+          "Merge"
+        );
+      } catch (error) {
+        context.warn("Failed to save session metadata", error);
       }
     }
 

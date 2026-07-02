@@ -7,14 +7,16 @@
   "scripts": {
     "build": "tsc",
     "start": "func start",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "test": "vitest run"
   },
   "dependencies": {
     "@azure/functions": "^4.5.0",
     "@azure/data-tables": "^13.3.0",
-    "@google/generative-ai": "^0.21.0"
+    "@google/genai": "^1.16.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.4"
   }
 }

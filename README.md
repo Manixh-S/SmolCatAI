@@ -7,11 +7,14 @@ The project is set up for deployment on Azure Static Web Apps with Google authen
 ## Features
 
 - Retro tamagotchi-style UI with animated pixel cat skins
-- Local cat care loop with hunger, happiness, and energy stats
+- Cat care loop with hunger, happiness, and energy stats
 - AI chat powered by Gemini with mood-aware responses
+- Stats persist in `localStorage` for everyone and sync to the server for signed-in users
+- Time-based decay applied on the server (and locally) when you return
+- Rate limiting for anonymous chat to protect the Gemini quota
 - Persistent browser session IDs for chat continuity
 - Google sign-in via Azure Static Web Apps authentication
-- Azure Table Storage support for chat history and user session metadata
+- Azure Table Storage for chat history, cat state, and session metadata
 - Background music and PWA-style static assets
 
 ## Tech Stack
@@ -27,7 +30,8 @@ The project is set up for deployment on Azure Static Web Apps with Google authen
 
 - Azure Functions v4
 - Azure Table Storage via `@azure/data-tables`
-- Google Gemini via `@google/generative-ai`
+- Google Gemini via `@google/genai`
+- Vitest for unit tests
 
 ### Deployment
 
@@ -36,21 +40,21 @@ The project is set up for deployment on Azure Static Web Apps with Google authen
 
 ## How It Works
 
-The frontend renders a handheld virtual pet interface. Basic interactions like feeding, petting, sleeping, renaming the cat, choosing a skin, and storing the generated session ID happen in the browser.
+The frontend renders a handheld virtual pet interface. Basic interactions like feeding, petting, sleeping, renaming the cat, and choosing a skin happen in the browser. Stats decay on a live tick and are written to `localStorage` on every change, so a refresh no longer resets the cat.
 
-When the user sends a message, the app posts the current cat stats, session ID, cat name, and user message to `/api/chatWithCat`. The Azure Function builds a system prompt from the cat's current state, optionally loads recent chat history from Azure Table Storage, sends the conversation to Gemini, and returns a short in-character response.
+For signed-in users, stats also sync with the backend: on load the app fetches saved state from `/api/getCat` (with server-side decay applied for time away), and changes are saved to `/api/updateCat` with a short debounce. The server owns the decay clock, so clients cannot rewind it.
 
-If the user is authenticated through Static Web Apps, the backend also stores session metadata tied to that identity.
+When the user sends a chat message, the app posts the current cat stats, session ID, cat name, and message to `/api/chatWithCat`. The Azure Function builds a system prompt from the cat's current state, loads recent chat history from Azure Table Storage, sends the conversation to Gemini, and returns a short in-character response. Anonymous sessions are rate limited (5 messages/minute); signed-in users are not.
 
 ## Architecture Notes
 
-- Frontend stat decay is handled in `src/useCatState.ts`
+- Frontend stat state, persistence, and server sync live in `src/useCatState.ts`
+- Decay rates are defined in `src/catState.ts` and `api/src/shared/catState.ts` and must stay in sync
 - Cat chat is handled by `api/src/functions/chatWithCat.ts`
+- Shared API helpers (auth header parsing, decay, rate limiting, table names) live in `api/src/shared/`
 - Google auth is configured in `staticwebapp.config.json`
 - Vite proxies `/api` requests to the local Azure Functions host during development
-- The repo includes `getCat` and `updateCat` API endpoints for authenticated saved state, but the current frontend does not call them yet
-
-That last point matters: today, cat stats are not restored from the backend on refresh. Name, skin, and session ID are stored in `localStorage`; the main pet stats currently live in frontend state during the session.
+- Offline decay is capped at 60 minutes so a cat left overnight is hungry, not permanently miserable
 
 ## Project Structure
 
@@ -69,6 +73,7 @@ SmolCat/
 |   |   |-- chatWithCat.ts
 |   |   |-- getCat.ts
 |   |   `-- updateCat.ts
+|   |-- src/shared/        # auth, cat state/decay, rate limiting, tables
 |   |-- host.json
 |   `-- package.json
 |-- .github/workflows/       # Static Web Apps deploy pipeline
@@ -165,6 +170,7 @@ The Vite dev server runs on `http://localhost:5173` by default and proxies `/api
 - `npm run build` compiles the Azure Functions TypeScript source
 - `npm start` starts the local Azure Functions runtime
 - `npm run watch` watches and recompiles API TypeScript files
+- `npm test` runs the vitest unit tests (decay and rate-limit logic)
 
 ## Environment Variables
 
@@ -202,19 +208,20 @@ Example request body:
 Behavior:
 
 - Requires `GEMINI_API_KEY`
+- Anonymous sessions are limited to 5 messages per minute (429 when exceeded); signed-in users are unlimited
 - Loads up to 8 previous chat messages for the same session when storage is configured
-- Stores chat history in the `CatChatHistory` table
-- Stores authenticated session metadata in the `CatSessions` table
+- Stores chat history in the `CatChatHistory` table and rate-limit windows in `CatRateLimits`
+- Stores authenticated session metadata (user, cat name) in the `CatSessions` table
 
 ### `GET /api/getCat`
 
-Returns authenticated cat state from storage, applying time-based decay since the last update.
+Returns authenticated cat state from storage, applying time-based decay since the last update (capped at 60 minutes).
 
 Behavior:
 
 - Requires authenticated identity from Static Web Apps headers
 - Requires `AzureWebJobsStorage`
-- Reads from the `CatStates` table
+- Reads from the `CatStates` table; returns default stats if none saved yet
 
 ### `POST /api/updateCat`
 
@@ -226,7 +233,7 @@ Example request body:
 {
   "hunger": 25,
   "happiness": 90,
-  "lastUpdated": 1760000000000
+  "energy": 60
 }
 ```
 
@@ -235,6 +242,7 @@ Behavior:
 - Requires authenticated identity from Static Web Apps headers
 - Requires `AzureWebJobsStorage`
 - Upserts into the `CatStates` table
+- `lastUpdated` is set by the server, so clients cannot rewind the decay clock
 
 ## Authentication
 
@@ -262,16 +270,15 @@ To deploy successfully, the Static Web App needs the appropriate secrets and app
 
 ## Known Limitations
 
-- The current UI does not yet read from `getCat` or write to `updateCat`
-- Cat stats reset on refresh because they currently live in client memory
+- Chat history is keyed only by the browser's session UUID; it is unguessable in practice but not real access control
+- The client reports its own stats to `chatWithCat`, so chat mood can be spoofed (cosmetic only)
 - Auth behavior is easiest to test in Azure Static Web Apps or with a matching local auth setup
-- Chat history persistence depends on valid Table Storage configuration
+- Chat history persistence and anonymous rate limiting depend on valid Table Storage configuration (both fail open without it)
 
 ## Future Improvements
 
-- Wire frontend stats to `getCat` and `updateCat`
-- Persist the full pet lifecycle across sessions
+- Merge anonymous local progress into the server state on first sign-in
 - Add richer cat animations and more moods
 - Expand AI memory and personality controls
-- Add automated tests for frontend state and API handlers
+- Add frontend component tests alongside the existing API unit tests
 

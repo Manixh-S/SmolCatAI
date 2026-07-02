@@ -1,21 +1,26 @@
+import type { CatStats } from "./catState";
+
 type CatAction = "feed" | "pet" | "sleep";
 
-type CatStats = {
-  hunger: number;
-  happiness: number;
-  energy: number;
-};
-
-const getCatResponse = (action: CatAction, _currentStats: CatStats) => {
+/** Instant canned reactions for care actions, flavoured by current stats. */
+const getCatResponse = (action: CatAction, stats: CatStats): string => {
   if (action === "feed") {
-    return "Yum!";
+    if (stats.hunger >= 75) {
+      return "FINALLY! *chomp chomp*";
+    }
+
+    return stats.hunger <= 15 ? "*sniff* ...maybe later." : "Yum!";
   }
 
   if (action === "pet") {
-    return "Purr...";
+    if (stats.happiness >= 80) {
+      return "Purrrr... best human. 😸";
+    }
+
+    return stats.happiness <= 30 ? "*cautious purr*" : "Purr...";
   }
 
-  return "Zzz...";
+  return stats.energy <= 20 ? "Zzz... zzz... zzz..." : "Zzz...";
 };
 
 export default getCatResponse;

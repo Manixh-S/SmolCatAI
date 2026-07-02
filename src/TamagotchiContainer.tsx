@@ -3,9 +3,10 @@ import "./TamagotchiContainer.css";
 import ChatBubble from "./ChatBubble";
 import getCatResponse from "./getCatResponse";
 import LoginPrompt from "./LoginPrompt";
-import type { ClientPrincipal } from "./LoginPrompt";
 import PixelCat from "./PixelCat";
+import RateLimitNotice from "./RateLimitNotice";
 import { sessionId } from "./SessionManager";
+import { useAuth } from "./useAuth";
 import { useCatState } from "./useCatState";
 
 const TamagotchiContainer = () => {
@@ -14,7 +15,8 @@ const TamagotchiContainer = () => {
     return trimmed.length > 0 ? trimmed : "SmolCat";
   };
 
-  const { stats, feed, pet, sleep } = useCatState();
+  const { clientPrincipal, isAuthenticated, authChecked } = useAuth();
+  const { stats, feed, pet, sleep } = useCatState(isAuthenticated);
   const [catName, setCatName] = useState(() => {
     if (typeof window === "undefined") {
       return "SmolCat";
@@ -39,40 +41,13 @@ const TamagotchiContainer = () => {
   const [chatPending, setChatPending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [bubbleOpen, setBubbleOpen] = useState(true);
-  const [clientPrincipal, setClientPrincipal] = useState<ClientPrincipal | null>(null);
   const [loginPromptOpen, setLoginPromptOpen] = useState(true);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [rateNoticeDismissed, setRateNoticeDismissed] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadClientPrincipal = async () => {
-      try {
-        const response = await fetch("/.auth/me");
-        if (!response.ok) {
-          return;
-        }
-
-        const contentType = response.headers.get("content-type") ?? "";
-        if (!contentType.includes("application/json")) {
-          return;
-        }
-
-        const data = (await response.json()) as { clientPrincipal?: ClientPrincipal | null };
-        if (isMounted && data.clientPrincipal) {
-          setClientPrincipal(data.clientPrincipal);
-        }
-      } catch {
-        // Ignore auth lookup failures in local/dev environments.
-      }
-    };
-
-    loadClientPrincipal();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Shown right after load, but only once the auth check has resolved as
+  // anonymous — signed-in users have no message limit, so they never see it.
+  const showRateNotice = authChecked && !isAuthenticated && !rateNoticeDismissed;
 
   useEffect(() => {
     setBubbleOpen(true);
@@ -163,6 +138,11 @@ const TamagotchiContainer = () => {
         }),
       });
 
+      if (response.status === 429) {
+        setChatError("The cat needs a break. Try again in a minute, or sign in.");
+        return;
+      }
+
       if (!response.ok) {
         throw new Error("Failed to chat");
       }
@@ -244,12 +224,17 @@ const TamagotchiContainer = () => {
               )}
             </div>
           ) : null}
-          {loginPromptOpen ? (
+          {loginPromptOpen || showRateNotice ? (
             <div className="tama-account__login">
-              <LoginPrompt
-                clientPrincipal={clientPrincipal}
-                onClose={clientPrincipal ? undefined : () => setLoginPromptOpen(false)}
-              />
+              {loginPromptOpen ? (
+                <LoginPrompt
+                  clientPrincipal={clientPrincipal}
+                  onClose={clientPrincipal ? undefined : () => setLoginPromptOpen(false)}
+                />
+              ) : null}
+              {showRateNotice ? (
+                <RateLimitNotice onClose={() => setRateNoticeDismissed(true)} />
+              ) : null}
             </div>
           ) : null}
         </div>
