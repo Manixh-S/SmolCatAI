@@ -40,8 +40,8 @@ export const advanceWindow = (
 
 /**
  * Storage-backed rate limit check keyed by session ID.
- * Fails open: if Table Storage is unavailable (e.g. local dev without
- * Azurite), the request is allowed rather than blocking the app.
+ * Fails closed: if Table Storage is unavailable, anonymous chat is blocked
+ * so quota-protection cannot be bypassed during outages.
  */
 export const checkRateLimit = async (
   client: TableClient,
@@ -59,7 +59,7 @@ export const checkRateLimit = async (
   } catch (error) {
     const statusCode = (error as { statusCode?: number }).statusCode;
     if (statusCode !== 404) {
-      return true;
+      return false;
     }
   }
 
@@ -77,7 +77,7 @@ export const checkRateLimit = async (
         "Replace"
       );
     } catch {
-      // Fail open on write errors too.
+      return false;
     }
   }
 

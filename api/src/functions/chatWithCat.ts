@@ -14,6 +14,14 @@ type ChatWithCatRequest = {
   userMessage: string;
 };
 
+type SessionEntity = {
+  partitionKey: string;
+  rowKey: string;
+  userId?: string;
+  catName?: string;
+  lastUpdated?: number;
+};
+
 type ChatMessageEntity = {
   partitionKey: string;
   rowKey: string;
@@ -25,10 +33,12 @@ type ChatMessageEntity = {
 const SESSION_PARTITION = "session";
 const MAX_HISTORY = 8;
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const normalizeSessionId = (sessionId?: string): string => {
+const normalizeSessionId = (sessionId?: string): string | null => {
   const trimmed = sessionId?.trim();
-  return trimmed ? trimmed : randomUUID();
+  return trimmed ? trimmed : null;
 };
 
 /**
@@ -85,8 +95,6 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
     };
   }
 
-  const sessionId = normalizeSessionId(payload.sessionId);
-
   const apiKey = process.env.GEMINI_API_KEY;
   const connectionString = process.env.AzureWebJobsStorage;
 
@@ -99,6 +107,23 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
   }
 
   const userId = getUserIdFromHeader(request);
+  const requestedSessionId = normalizeSessionId(payload.sessionId);
+
+  if (requestedSessionId && !UUID_V4_REGEX.test(requestedSessionId)) {
+    return {
+      status: 400,
+      jsonBody: { error: "sessionId must be a UUID v4." },
+    };
+  }
+
+  if (!userId && !requestedSessionId) {
+    return {
+      status: 400,
+      jsonBody: { error: "sessionId is required for anonymous chat." },
+    };
+  }
+
+  const sessionId = requestedSessionId ?? randomUUID();
   const trimmedMessage = userMessage.trim();
   const chatHistory: ChatMessageEntity[] = [];
 
@@ -114,6 +139,27 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
         ensureTable(serviceClient, RATE_LIMIT_TABLE),
       ]);
 
+      chatClient = getTableClient(connectionString, CHAT_TABLE);
+      sessionClient = getTableClient(connectionString, SESSION_TABLE);
+
+      // Signed-in sessions are bound to a single authenticated user.
+      if (userId) {
+        try {
+          const existing = await sessionClient.getEntity<SessionEntity>(SESSION_PARTITION, sessionId);
+          if (existing.userId && existing.userId !== userId) {
+            return {
+              status: 403,
+              jsonBody: { error: "This chat session belongs to a different account." },
+            };
+          }
+        } catch (error) {
+          const statusCode = (error as { statusCode?: number }).statusCode;
+          if (statusCode !== 404) {
+            throw error;
+          }
+        }
+      }
+
       // Signed-in users are trusted; anonymous sessions get a fixed-window
       // limit so a stray script can't burn the Gemini quota.
       if (!userId) {
@@ -126,9 +172,6 @@ const handler = async (request: HttpRequest, context: InvocationContext): Promis
           };
         }
       }
-
-      chatClient = getTableClient(connectionString, CHAT_TABLE);
-      sessionClient = getTableClient(connectionString, SESSION_TABLE);
 
       const safeSessionId = sessionId.replace(/'/g, "''");
       const query = chatClient.listEntities<ChatMessageEntity>({

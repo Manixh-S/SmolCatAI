@@ -208,9 +208,11 @@ Example request body:
 Behavior:
 
 - Requires `GEMINI_API_KEY`
+- Anonymous requests must include a valid UUID v4 `sessionId`
 - Anonymous sessions are limited to 5 messages per minute (429 when exceeded); signed-in users are unlimited
 - Loads up to 8 previous chat messages for the same session when storage is configured
 - Stores chat history in the `CatChatHistory` table and rate-limit windows in `CatRateLimits`
+- Enforces ownership for authenticated sessions, rejecting cross-account session reuse
 - Stores authenticated session metadata (user, cat name) in the `CatSessions` table
 
 ### `GET /api/getCat`
@@ -271,10 +273,10 @@ To deploy successfully, the Static Web App needs the appropriate secrets and app
 
 ## Known Limitations
 
-- Chat history is keyed only by the browser's session UUID; it is unguessable in practice but not real access control
+- Chat history for signed-in users is protected by session ownership checks, but anonymous chat still relies on opaque browser session IDs
 - The client reports its own stats to `chatWithCat`, so chat mood can be spoofed (cosmetic only)
 - Auth behavior is easiest to test in Azure Static Web Apps or with a matching local auth setup
-- Chat history persistence and anonymous rate limiting depend on valid Table Storage configuration (both fail open without it)
+- Anonymous chat is blocked when rate-limit storage is unavailable to prevent quota bypass
 
 ## Future Improvements
 
